@@ -1,0 +1,9 @@
+<platform xmlns="http://ns.adobe.com/air/extension/3.1">
+    <description >NativeMaps</description> 
+    <copyright>2013 PalDeveloppers</copyright> 
+    <linkerOptions>
+        <option>-framework MapKit</option>
+		<!-- to link with the libiconv.dylib -->
+        <option>-liconv</option>
+    </linkerOptions>
+</platform>
