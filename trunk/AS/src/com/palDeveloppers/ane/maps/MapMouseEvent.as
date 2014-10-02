@@ -4,9 +4,11 @@ package com.palDeveloppers.ane.maps
 	
 	public class MapMouseEvent extends Event
 	{
-		public static var MARKER_SELECT:String="mapevent_select";
-		public static var MARKER_DESELECT:String="mapevent_deselect";
-		public static var INFO_BUTTON_CLICKED:String="infoButtonClicked";
+		public static const MARKER_SELECT:String="markerSelect";
+		public static const MARKER_DESELECT:String="markerDeselect";
+		public static const INFO_BUTTON_CLICKED:String="infoButtonClicked";
+		public static const MAP_TAP:String="mapTap";
+		public static const MAP_LONG_PRESS:String="mapLongPress";
 		public var data:Object=null;
 		public function MapMouseEvent(type:String,feature:Object=null, bubbles:Boolean=false, cancelable:Boolean=false)
 		{

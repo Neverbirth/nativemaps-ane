@@ -107,9 +107,10 @@ FREObject setViewPortHandler(FREContext ctx, void* funcData, uint32_t argc, FREO
 
 FREObject getCenterHandler(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
 	NSLog(@"*******************In getCenterHandler function********************");
-	CLLocationCoordinate2D mapCenter=[[refToSelf mapWrap] getMapCenter];
+
+	CLLocationCoordinate2D mapCenter=refToSelf.mapWrap.mapView.centerCoordinate;
 	
-	
+    
 	NSLog(@"*******************Constructing Custom LatLng FRE Object from native CGRect*****************");
 	FREObject* argV=(FREObject*)malloc(sizeof(FREObject)*2);
 	FREObject returnObject;
@@ -349,6 +350,14 @@ FREObject removePolylineHandler(FREContext ctx, void* funcData, uint32_t argc, F
 	return NULL;
 }
 
+FREObject clearMapHandler(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
+	NSLog(@"*******************In clearMapHandler function********************");
+	
+	[[refToSelf mapWrap] clearMap];
+    
+	return NULL;
+}
+
 FREObject setMapTypeHandler(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
 	NSLog(@"*******************In setMapTypeHandler function********************");
     int32_t mapType;
@@ -475,13 +484,11 @@ FREObject drawViewPortToBitmapDataHandler(FREContext ctx, void* funcData, uint32
 //set user location to visible or not visibile
 FREObject showUserLocationHandler(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
     NSLog(@"*******************In showUserLocationHandler function********************");
-    int32_t showMe;
+    uint32_t showMe;
     
-    FREGetObjectAsInt32(argv[0],&showMe);
-    if(showMe==1)
-        [[refToSelf mapWrap] showUserLocation:YES];
-    else if(showMe==0)
-        [[refToSelf mapWrap] showUserLocation:NO];
+    FREGetObjectAsBool(argv[0],&showMe);
+    refToSelf.mapWrap.mapView.showsUserLocation=(BOOL)showMe;
+    
     return NULL;
 }
 
@@ -543,7 +550,8 @@ FREObject openMarkerHandler(FREContext ctx, void* funcData, uint32_t argc, FREOb
 
 FREObject getUserTrackingMode(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
     NSLog(@"*******************In getUserTrackingMode function********************");
-    MKUserTrackingMode trackingMode = [[refToSelf mapWrap] getUserTrackingMode];
+    MKUserTrackingMode trackingMode = refToSelf.mapWrap.mapView.userTrackingMode;
+    
 	FREObject returnObject;
     FRENewObjectFromInt32(trackingMode, &returnObject);
     
@@ -559,15 +567,15 @@ FREObject setUserTrackingMode(FREContext ctx, void* funcData, uint32_t argc, FRE
     FREGetObjectAsInt32(argv[0],&mode);
     FREGetObjectAsBool(argv[1],&animated);
     
-    [[refToSelf mapWrap] setUserTrackingMode:(MKUserTrackingMode)mode animated:(BOOL)animated];
+    [[[refToSelf mapWrap] mapView] setUserTrackingMode:(MKUserTrackingMode)mode animated:(BOOL)animated];
     
     return NULL;
 }
 
 FREObject getUserLocation(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
     NSLog(@"*******************In getUserLocation function********************");
-	CLLocationCoordinate2D location=[[refToSelf mapWrap] getUserLocation];
-	
+    
+	CLLocationCoordinate2D location=refToSelf.mapWrap.mapView.userLocation.coordinate;
 	
 	NSLog(@"*******************Constructing Custom LatLng FRE Object from native CGRect*****************");
 	FREObject* argV=(FREObject*)malloc(sizeof(FREObject)*2);
@@ -576,6 +584,113 @@ FREObject getUserLocation(FREContext ctx, void* funcData, uint32_t argc, FREObje
 	FRENewObjectFromDouble(location.longitude, &argV[1]);
 	
 	int i= FRENewObject((const uint8_t*)"com.palDeveloppers.ane.maps.LatLng",2,argV,&returnObject,NULL);
+	if (i!=FRE_OK) {
+		NSLog(@"Call to FRENewObject reply value is %d",i);
+	}
+	return returnObject;
+}
+
+FREObject getRegion(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
+    NSLog(@"*******************In dispatchRegionChange function********************");
+    
+    MKCoordinateRegion region = refToSelf.mapWrap.mapView.region;
+    
+    double minLat = region.center.latitude - (region.span.latitudeDelta / 2.0);
+    double maxLat = region.center.latitude + (region.span.latitudeDelta / 2.0);
+    
+    double minLong = region.center.longitude - (region.span.longitudeDelta / 2.0);
+    double maxLong = region.center.longitude + (region.span.longitudeDelta / 2.0);
+    
+    NSLog(@"*******************Constructing Custom LatLngRegion FRE Object from native CGRect*****************");
+	FREObject* neArg=(FREObject*)malloc(sizeof(FREObject)*2);
+	FREObject northEast;
+	FRENewObjectFromDouble(maxLat, &neArg[0]);
+	FRENewObjectFromDouble(maxLong, &neArg[1]);
+	
+	int i = FRENewObject((const uint8_t*)"com.palDeveloppers.ane.maps.LatLng",2,neArg,&northEast,NULL);
+	if (i!=FRE_OK) {
+		NSLog(@"Call to NE FRENewObject reply value is %d",i);
+	}
+    
+	FREObject* swArg=(FREObject*)malloc(sizeof(FREObject)*2);
+	FREObject southWest;
+	FRENewObjectFromDouble(minLat, &swArg[0]);
+	FRENewObjectFromDouble(minLong, &swArg[1]);
+	i = FRENewObject((const uint8_t*)"com.palDeveloppers.ane.maps.LatLng",2,swArg,&southWest,NULL);
+	if (i!=FRE_OK) {
+		NSLog(@"Call to SW FRENewObject reply value is %d",i);
+	}
+    
+    FREObject* argV=(FREObject*)malloc(sizeof(FREObject)*2);
+    FREObject returnObject;
+    argV[0] = northEast;
+    argV[1] = southWest;
+    
+	i = FRENewObject((const uint8_t*)"com.palDeveloppers.ane.maps.LatLngRegion",2,argV,&returnObject,NULL);
+	if (i!=FRE_OK) {
+		NSLog(@"Call to FRENewObject reply value is %d",i);
+	}
+    
+	return returnObject;
+}
+
+FREObject pointToCoordinate(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
+    NSLog(@"*******************In dispatchRegionChange function********************");
+    
+	FREObject x;
+	FREObject y;
+	
+	FREGetObjectProperty(argv[0], (const uint8_t*)"x", &x, NULL);
+	FREGetObjectProperty(argv[0], (const uint8_t*)"y", &y, NULL);
+	
+    double d1,d2;
+
+	FREGetObjectAsDouble(x, &d1);
+	FREGetObjectAsDouble(y, &d2);
+    
+    CGPoint p = CGPointMake(d1/scaleFactor, d2/scaleFactor);
+	
+    MKMapView* view = [[refToSelf mapWrap] mapView];
+    
+	CLLocationCoordinate2D coord = [view convertPoint:p toCoordinateFromView:view];
+    
+	FREObject* argV=(FREObject*)malloc(sizeof(FREObject)*2);
+	FREObject returnObject;
+	FRENewObjectFromDouble(coord.latitude, &argV[0]);
+	FRENewObjectFromDouble(coord.longitude, &argV[1]);
+	
+	int i= FRENewObject((const uint8_t*)"com.palDeveloppers.ane.maps.LatLng",2,argV,&returnObject,NULL);
+	if (i!=FRE_OK) {
+		NSLog(@"Call to FRENewObject reply value is %d",i);
+	}
+	return returnObject;
+}
+
+FREObject coordinateToPoint(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
+    NSLog(@"*******************In dispatchRegionChange function********************");
+
+	FREObject lat;
+	FREObject lng;
+    
+	if(FRECallObjectMethod(argv[0], (const uint8_t*)"lat",0,nil, &lat, NULL) != FRE_OK) NSLog(@"Error ");
+	FRECallObjectMethod(argv[0], (const uint8_t*)"lng",0,nil, &lng, NULL);
+	
+	CLLocationCoordinate2D coord;
+	double nlat,nlng;
+	
+	FREGetObjectAsDouble(lat, &nlat);coord.latitude=nlat;
+	FREGetObjectAsDouble(lng, &nlng);coord.longitude=nlng;
+    
+    MKMapView* view = [[refToSelf mapWrap] mapView];
+    
+    CGPoint point = [view convertCoordinate:coord toPointToView:view];
+    
+	FREObject* argV=(FREObject*)malloc(sizeof(FREObject)*2);
+	FREObject returnObject;
+	FRENewObjectFromDouble(point.x*scaleFactor, &argV[0]);
+	FRENewObjectFromDouble(point.y*scaleFactor, &argV[1]);
+	
+	int i= FRENewObject((const uint8_t*)"flash.geom.Point",2,argV,&returnObject,NULL);
 	if (i!=FRE_OK) {
 		NSLog(@"Call to FRENewObject reply value is %d",i);
 	}
@@ -591,12 +706,21 @@ FREObject dispatchLocationUpdatedEnable(FREContext ctx, void* funcData, uint32_t
     return NULL;
 }
 
+FREObject dispatchRegionChangeEnable(FREContext ctx, void* funcData, uint32_t argc, FREObject argv[]) {
+    NSLog(@"*******************In dispatchRegionChange function********************");
+    int32_t value;
+    
+    FREGetObjectAsInt32(argv[0],&value);
+    [[refToSelf mapWrap] dispatchRegionChangeEnable:value];
+    return NULL;
+}
+
 // A native context instance is created
 void MapsExtensionContextInitializer(void* extData, const uint8_t* ctxType, FREContext ctx,
 						uint32_t* numFunctionsToTest, const FRENamedFunction** functionsToSet) {
 	NSLog(@"*******************In context Initializer********************");
-	*numFunctionsToTest = 24;
-	FRENamedFunction* func = (FRENamedFunction*)malloc(sizeof(FRENamedFunction)*24);
+	*numFunctionsToTest = 29;
+	FRENamedFunction* func = (FRENamedFunction*)malloc(sizeof(FRENamedFunction)*29);
 	
 	func[0].name = (const uint8_t*)"createMapView";
 	func[0].functionData = NULL;
@@ -693,6 +817,26 @@ void MapsExtensionContextInitializer(void* extData, const uint8_t* ctxType, FREC
     func[23].name=(const uint8_t*)"dispatchLocationUpdatedEnable";
     func[23].functionData=NULL;
     func[23].function=&dispatchLocationUpdatedEnable;
+    
+    func[24].name=(const uint8_t*)"dispatchRegionChangeEnable";
+    func[24].functionData=NULL;
+    func[24].function=&dispatchRegionChangeEnable;
+    
+    func[25].name=(const uint8_t*)"getRegion";
+    func[25].functionData=NULL;
+    func[25].function=&getRegion;
+    
+    func[26].name=(const uint8_t*)"pointToCoordinate";
+    func[26].functionData=NULL;
+    func[26].function=&pointToCoordinate;
+    
+    func[27].name=(const uint8_t*)"coordinateToPoint";
+    func[27].functionData=NULL;
+    func[27].function=&coordinateToPoint;
+    
+    func[28].name=(const uint8_t*)"clearMap";
+    func[28].functionData=NULL;
+    func[28].function=&clearMapHandler;
     
 	*functionsToSet = func;
 	

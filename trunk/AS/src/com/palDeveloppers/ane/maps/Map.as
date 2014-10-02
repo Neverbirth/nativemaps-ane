@@ -14,10 +14,18 @@ package com.palDeveloppers.ane.maps
 	import flash.utils.ByteArray;
 	import flash.system.Capabilities;
 	
-	[Event(name="mapevent_click", type="com.adobe.nativeExtensions.maps.MapMouseEvent")]
-	[Event(name="mapevent_tilesloadedpending", type="com.adobe.nativeExtensions.maps.MapEvent")]
-	[Event(name="mapevent_tilesloaded", type="com.adobe.nativeExtensions.maps.MapEvent")]
-	[Event(name="mapevent_maploaderror", type="com.adobe.nativeExtensions.maps.MapEvent")]
+	[Event(name="tilesLoadedPending", type="com.palDeveloppers.ane.maps.MapEvent")]
+	[Event(name="tilesLoaded", type="com.palDeveloppers.ane.maps.MapEvent")]
+	[Event(name="mapLoadError", type="com.palDeveloppers.ane.maps.MapEvent")]
+	[Event(name="regionChange", type="com.palDeveloppers.ane.maps.MapEvent")]
+	[Event(name="regionChanged", type="com.palDeveloppers.ane.maps.MapEvent")]
+	[Event(name="userLocationFailed", type="com.palDeveloppers.ane.maps.MapLocationEvent")]
+	[Event(name="userLocationUpdated", type="com.palDeveloppers.ane.maps.MapLocationEvent")]
+	[Event(name="markerSelect", type="com.palDeveloppers.ane.maps.MapMouseEvent")]
+	[Event(name="markerDeselect", type="com.palDeveloppers.ane.maps.MapMouseEvent")]
+	[Event(name="infoButtonClicked", type="com.palDeveloppers.ane.maps.MapMouseEvent")]
+	[Event(name="mapLongPress", type="com.palDeveloppers.ane.maps.MapMouseEvent")]
+	[Event(name="mapTap", type="com.palDeveloppers.ane.maps.MapMouseEvent")]
 	public class Map extends EventDispatcher
 	{
 		private var _visible:Boolean;
@@ -102,6 +110,28 @@ package com.palDeveloppers.ane.maps
 				var coordinate:LatLng = new LatLng(plainCoordinate.lat, plainCoordinate.lng);
 				
 				this.dispatchEvent(new MapLocationEvent(MapLocationEvent.USER_LOCATION_UPDATED, coordinate));
+			}
+			else if (se.code == "REGION_CHANGE")
+			{
+				this.dispatchEvent(new MapEvent(MapEvent.REGION_CHANGE));
+			}
+			else if (se.code == "REGION_CHANGED")
+			{
+				this.dispatchEvent(new MapEvent(MapEvent.REGION_CHANGED));
+			}
+			else if (se.code == "MAP_TAP")
+			{
+				plainCoordinate = JSON.parse(se.level);
+				coordinate = new LatLng(plainCoordinate.lat, plainCoordinate.lng);
+				
+				this.dispatchEvent(new MapMouseEvent(MapMouseEvent.MAP_TAP, coordinate));
+			}
+			else if (se.code == "MAP_LONG_PRESS")
+			{
+				plainCoordinate = JSON.parse(se.level);
+				coordinate = new LatLng(plainCoordinate.lat, plainCoordinate.lng);
+				
+				this.dispatchEvent(new MapMouseEvent(MapMouseEvent.MAP_LONG_PRESS, coordinate));
 			}
 			else
 				trace("Unrecognized Error got dispatched from Native Extnesion");
@@ -191,6 +221,11 @@ package com.palDeveloppers.ane.maps
 			//Please contact me [meetshah at adobe.com] if you find a solution to this
 		}
 		
+		public function getRegion():LatLngRegion
+		{
+			return extContext.call("getRegion") as LatLngRegion;
+		}
+		
 		public function getZoom():Number
 		{
 			return extContext.call("getZoom") as Number;
@@ -212,6 +247,16 @@ package com.palDeveloppers.ane.maps
 			//Please contact me [meetshah at adobe.com] if you find a solution to this
 		}
 		
+		public function coordinateToPoint(value:LatLng):Point
+		{
+			return extContext.call("coordinateToPoint", value) as Point;
+		}
+		
+		public function pointToCoordinate(value:Point):LatLng
+		{
+			return extContext.call("pointToCoordinate", value) as LatLng;
+		}
+		
 		public function addOverlay(overlay:Object):void
 		{
 			if (overlay is Marker)
@@ -223,7 +268,7 @@ package com.palDeveloppers.ane.maps
 			}
 			else if (overlay is Polyline)
 			{
-				_overlaysVector.push(overlay);
+				_overlaysVector[_overlaysVector.length] = Polyline(overlay);
 				extContext.call("addPolyline", overlay);
 			}
 			
@@ -248,6 +293,13 @@ package com.palDeveloppers.ane.maps
 					extContext.call("removePolyline", overlay);
 				}
 			}
+		}
+		
+		public function clearMap():void
+		{
+			extContext.call("clearMap");
+			_annotationsVector = new Vector.<Marker>(); 
+			_overlaysVector = new Vector.<Polyline>();
 		}
 		
 		public function setMapType(mapType:int):void
@@ -282,7 +334,7 @@ package com.palDeveloppers.ane.maps
 		public function set showUserLocation(shouldShow:Boolean):void
 		{
 			_showUserLocation = shouldShow;
-			extContext.call("showUserLocation", shouldShow ? 1 : 0);
+			extContext.call("showUserLocation", shouldShow);
 		}
 		
 		public function get showUserLocation():Boolean
@@ -313,16 +365,32 @@ package com.palDeveloppers.ane.maps
 		
 		override public function addEventListener(type:String, listener:Function, useCapture:Boolean=false, priority:int=0, useWeakReference:Boolean=false):void
 		{
-			if (type == MapLocationEvent.USER_LOCATION_UPDATED && !hasEventListener(MapLocationEvent.USER_LOCATION_UPDATED))
-				extContext.call("dispatchLocationUpdatedEnable", 1);
+			if (type == MapLocationEvent.USER_LOCATION_UPDATED)
+			{
+				if (!hasEventListener(MapLocationEvent.USER_LOCATION_UPDATED))
+					extContext.call("dispatchLocationUpdatedEnable", 1);
+			}
+			else if (type == MapEvent.REGION_CHANGE)
+			{
+				if (!hasEventListener(MapEvent.REGION_CHANGE))
+					extContext.call("dispatchRegionChangeEnable", 1);
+			}
 			super.addEventListener(type, listener, useCapture, priority, useWeakReference);
 		}
 		
 		override public function removeEventListener(type:String, listener:Function, useCapture:Boolean=false):void
 		{
 			super.removeEventListener(type, listener, useCapture);
-			if (type == MapLocationEvent.USER_LOCATION_UPDATED && !hasEventListener(MapLocationEvent.USER_LOCATION_UPDATED))
-				extContext.call("dispatchLocationUpdatedEnable", 0);
+			if (type == MapLocationEvent.USER_LOCATION_UPDATED)
+			{
+				if (!hasEventListener(MapLocationEvent.USER_LOCATION_UPDATED))
+					extContext.call("dispatchLocationUpdatedEnable", 0);
+			}
+			else if (type == MapEvent.REGION_CHANGE)
+			{
+				if (!hasEventListener(MapEvent.REGION_CHANGE))
+					extContext.call("dispatchRegionChangeEnable", 0);
+			}
 		}
 	}
 }

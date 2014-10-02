@@ -4,6 +4,7 @@ package com.palDeveloppers.ane.maps
 	{
 		private var _latitude:Number=0.0;
 		private var _longitude:Number=0.0;
+		
 		public function LatLng(lat:Number,lng:Number)
 		{
 			_latitude=lat;
@@ -14,9 +15,15 @@ package com.palDeveloppers.ane.maps
 		{
 			return _latitude;
 		}
+		
 		public function lng():Number
 		{
 			return _longitude;
+		}
+		
+		public function toString():String
+		{
+			return _latitude + ", " + _longitude;
 		}
 	}
 }

@@ -18,16 +18,12 @@
 -(CGRect)getViewPort;
 -(void)showMap;
 -(void)hideMap;
--(void)showUserLocation:(BOOL)show;
 -(void)panTo:(CLLocationCoordinate2D)newCenter;
 -(void)setZoom:(MKCoordinateRegion)newRegion;
 -(double)getZoom;
 -(void)setMapCenter:(CLLocationCoordinate2D)newCenter;
--(CLLocationCoordinate2D)getMapCenter;
--(MKUserTrackingMode)getUserTrackingMode;
--(void)setUserTrackingMode:(MKUserTrackingMode)mode animated:(BOOL)animated;
--(CLLocationCoordinate2D)getUserLocation;
 -(void)dispatchLocationUpdatedEnable:(int32_t)value;
+-(void)dispatchRegionChangeEnable:(int32_t)value;
 -(void)zoomToRect:(MKMapRect)newRect;
 -(void)initWithDefaultFrame;
 -(void)addMarkerAnnotation:(MyCustomAnnotation *)tAnn;
@@ -36,6 +32,7 @@
 -(void)closeMarkerWithMarkerID:(int32_t)myID;
 -(void)removeOverlayControlWithOverlayID:(int32_t)myASId;
 -(void)addOverlayControl:(MyCustomOverlay *)overlay;
+-(void)clearMap;
 
 @property(retain, readonly, nonatomic) MKMapView *mapView;
 @property(retain, nonatomic) UIView *parentView;
