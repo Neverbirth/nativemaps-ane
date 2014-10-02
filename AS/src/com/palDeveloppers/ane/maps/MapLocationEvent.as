@@ -4,8 +4,8 @@ package com.palDeveloppers.ane.maps
 	
 	public class MapLocationEvent extends Event
 	{
-		public static var USER_LOCATION_FAILED:String="userLocationFailed";
-		public static var USER_LOCATION_UPDATED:String="userLocationUpdated";
+		public static const USER_LOCATION_FAILED:String="userLocationFailed";
+		public static const USER_LOCATION_UPDATED:String="userLocationUpdated";
 		
 		private var _data:Object;
 		

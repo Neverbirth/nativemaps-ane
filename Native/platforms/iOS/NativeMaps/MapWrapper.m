@@ -12,7 +12,7 @@
 #import "MyCustomOverlay.h"
 
 #import "FlashRuntimeExtensions.h"
-
+#import "UICustomPressGestureRecognizer.h"
 extern FREObject getContext2();
 
 @implementation MapWrapper
@@ -21,6 +21,7 @@ extern FREObject getContext2();
 NSMutableArray * annotationsArray=nil;
 NSMutableArray * overlaysArray=nil;
 int32_t dispatchLocationUpdated=0;
+int32_t dispatchRegionChange=0;
 
 -(void)initWithDefaultFrame
 {
@@ -30,6 +31,18 @@ int32_t dispatchLocationUpdated=0;
 	MKMapView *aView=[[MKMapView alloc] initWithFrame:frame];
     aView.delegate=self;
 	mapView=aView;
+    
+    UILongPressGestureRecognizer *lpgr = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPressGesture:)];
+    lpgr.minimumPressDuration = 1;
+    
+    /*UICustomPressGestureRecognizer *tgr = [[UICustomPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleTapGesture:)];
+    [tgr requireGestureRecognizerToFail:lpgr];
+    tgr.minimumPressDuration = 0.08;
+    tgr.allowableMovement = 5;
+    [mapView addGestureRecognizer:tgr];*/
+    [mapView addGestureRecognizer:lpgr];
+    //[tgr release];
+    [lpgr release];
     
     annotationsArray=[[NSMutableArray alloc] init];
     overlaysArray=[[NSMutableArray alloc] init];
@@ -75,10 +88,6 @@ int32_t dispatchLocationUpdated=0;
 	
 }
 
--(void)showUserLocation:(BOOL)show{
-	mapView.showsUserLocation=show;
-}
-
 -(void)panTo:(CLLocationCoordinate2D)newCenter{
 	[mapView setCenterCoordinate:newCenter animated:YES];
 }
@@ -95,33 +104,20 @@ int32_t dispatchLocationUpdated=0;
 	double z=[UtilityClass zoomFromSpan:[mapView region].span forMap:mapView];
 	return z;
 }
+
 -(void)setMapCenter:(CLLocationCoordinate2D)newCenter
 {
 	[mapView setCenterCoordinate:newCenter animated:YES];
-}
--(CLLocationCoordinate2D)getMapCenter
-{
-	return [mapView centerCoordinate];
-}
-
--(MKUserTrackingMode)getUserTrackingMode
-{
-    return [mapView userTrackingMode];
-}
-
--(void)setUserTrackingMode:(MKUserTrackingMode)mode animated:(BOOL)animated
-{
-    [mapView setUserTrackingMode:mode animated:animated];
-}
-
--(CLLocationCoordinate2D)getUserLocation
-{
-    return mapView.userLocation.location.coordinate;
 }
 
 -(void)dispatchLocationUpdatedEnable:(int32_t)value
 {
     dispatchLocationUpdated = value;
+}
+
+-(void)dispatchRegionChangeEnable:(int32_t)value
+{
+    dispatchRegionChange = value;
 }
 
 -(void)zoomToRect:(MKMapRect)newRect
@@ -139,7 +135,7 @@ int32_t dispatchLocationUpdated=0;
 {
     NSLog(@"Removing Element from wrapper class");
     MyCustomOverlay *abc=nil;
-    for(int i=0;i<[overlaysArray count];i++)
+    for(int i=0,count=[overlaysArray count];i<count;i++)
     {
         abc=[overlaysArray objectAtIndex:i];
         if([abc myId]==myAsId)
@@ -160,7 +156,7 @@ int32_t dispatchLocationUpdated=0;
 -(void)removeMarkerAnnotationWithMarkerID:(int32_t)myAsId
 {
     MyCustomAnnotation *abc=NULL;
-    for(int i=0;i<[annotationsArray count];i++)
+    for(int i=0,count=[annotationsArray count];i<count;i++)
     {
         abc=[annotationsArray objectAtIndex:i];
         if([abc myId]==myAsId)
@@ -173,11 +169,19 @@ int32_t dispatchLocationUpdated=0;
     }
 }
 
+-(void)clearMap{
+    [mapView removeOverlays: mapView.overlays];
+    [mapView removeAnnotations: mapView.annotations];
+	
+	[annotationsArray removeAllObjects];
+	[overlaysArray removeAllObjects];
+}
+
 //opens the callout of the pin with the given id 
 -(void)openMarkerWithMarkerID:(int32_t)param
 {
     MyCustomAnnotation *abc=NULL;
-    for(int i=0;i<[annotationsArray count];i++)
+    for(int i=0,count=[annotationsArray count];i<count;i++)
     {
         abc=[annotationsArray objectAtIndex:i];
         if([abc myId]==param)
@@ -196,7 +200,7 @@ int32_t dispatchLocationUpdated=0;
 -(void)closeMarkerWithMarkerID:(int32_t)param
 {
     MyCustomAnnotation *abc=NULL;
-    for(int i=0;i<[annotationsArray count];i++)
+    for(int i=0,count=[annotationsArray count];i<count;i++)
     {
         abc=[annotationsArray objectAtIndex:i];
         if([abc myId]==param)
@@ -238,12 +242,10 @@ int32_t dispatchLocationUpdated=0;
     MKPinAnnotationView* pinView=(MKPinAnnotationView*)[mapViewLocal dequeueReusableAnnotationViewWithIdentifier:@"CustomPinAnnotation"];
     if(!pinView)
     {
-        NSLog(@"Didn't Got from deque");
         pinView=[[[MKPinAnnotationView alloc] initWithAnnotation:annotation reuseIdentifier:@"CustomPinAnnotation"] autorelease];
     }
     else
     {
-        NSLog(@"Readily Got from deque");
         pinView.annotation=annotation;
     }
     MyCustomAnnotation* cAnnotation = (MyCustomAnnotation*)annotation;
@@ -252,12 +254,13 @@ int32_t dispatchLocationUpdated=0;
     pinView.canShowCallout=cAnnotation.infoWindowEnabled;
     
     if (cAnnotation.showInfoWindowButton == YES) {
-        pinView.rightCalloutAccessoryView = [UIButton buttonWithType:UIButtonTypeDetailDisclosure];
+        if (pinView.rightCalloutAccessoryView == nil)
+            pinView.rightCalloutAccessoryView = [UIButton buttonWithType:UIButtonTypeDetailDisclosure];
     } else {
         pinView.rightCalloutAccessoryView = nil;
     }
     
-    NSLog(@"Returning PinView %d",[((MyCustomAnnotation*)annotation) markerPinColor]);
+//    NSLog(@"Returning PinView %d",[((MyCustomAnnotation*)annotation) smarkerPinColor]);
     return pinView;
 }
 
@@ -318,6 +321,46 @@ int32_t dispatchLocationUpdated=0;
 {
     if (dispatchLocationUpdated)
         FREDispatchStatusEventAsync(getContext2(), (const uint8_t *)"LOCATION_UPDATED", (const uint8_t *)[[NSString stringWithFormat:@"{\"lat\":%f,\"lng\":%f}", userLocation.location.coordinate.latitude, userLocation.location.coordinate.longitude] UTF8String]);
+}
+
+//view change
+- (void)mapView:(MKMapView *)mapView regionWillChangeAnimated:(BOOL)animated
+{
+    if (dispatchRegionChange)
+        FREDispatchStatusEventAsync(getContext2(), (const uint8_t *)"REGION_CHANGE", (const uint8_t *)"");
+    
+}
+
+- (void)mapView:(MKMapView *)mapView regionDidChangeAnimated:(BOOL)animated
+{
+    FREDispatchStatusEventAsync(getContext2(), (const uint8_t *)"REGION_CHANGED", (const uint8_t *)"");
+    
+}
+
+//map click
+- (void)handleLongPressGesture:(UIGestureRecognizer *)gestureRecognizer
+{
+    if (gestureRecognizer.state != UIGestureRecognizerStateEnded)
+        return;
+    
+    CGPoint touchPoint = [gestureRecognizer locationInView:mapView];
+    CLLocationCoordinate2D touchMapCoordinate =
+    [mapView convertPoint:touchPoint toCoordinateFromView:mapView];
+    
+    FREDispatchStatusEventAsync(getContext2(), (const uint8_t *)"MAP_LONG_PRESS", (const uint8_t *)[[NSString stringWithFormat:@"{\"lat\":%f,\"lng\":%f}", touchMapCoordinate.latitude, touchMapCoordinate.longitude] UTF8String]);
+}
+
+- (void)handleTapGesture:(UIGestureRecognizer *)gestureRecognizer
+{
+    if (gestureRecognizer.state != UIGestureRecognizerStateEnded) {
+        return;
+    }
+    
+    CGPoint touchPoint = [gestureRecognizer locationInView:mapView];
+    CLLocationCoordinate2D touchMapCoordinate =
+    [mapView convertPoint:touchPoint toCoordinateFromView:mapView];
+    
+    FREDispatchStatusEventAsync(getContext2(), (const uint8_t *)"MAP_TAP", (const uint8_t *)[[NSString stringWithFormat:@"{\"lat\":%f,\"lng\":%f}", touchMapCoordinate.latitude, touchMapCoordinate.longitude] UTF8String]);
 }
 
 @end
